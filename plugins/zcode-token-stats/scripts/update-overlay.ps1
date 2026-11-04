@@ -10,7 +10,7 @@ param(
   [switch]$NoPause
 )
 $ErrorActionPreference = 'Stop'
-$Repo = 'bgsxbz/zcode-token-stats'
+$Repo = 'Freegg-top/zcode-token-stats'
 $StampRoot = Join-Path $env:LOCALAPPDATA 'ZCodeTokenStats'
 
 function Find-AppAsar {

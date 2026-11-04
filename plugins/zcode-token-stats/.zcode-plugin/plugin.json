@@ -1,8 +1,8 @@
-{
+﻿{
   "name": "zcode-token-stats",
   "version": "2.0.6",
   "description": "ZCode 输入框 Token/用量统计胶囊的安装、版本检查与卸载命令（direct SQLite 架构，修改 app.asar，需完全退出 ZCode 生效）。",
-  "author": { "name": "bgsxbz" },
+  "author": { "name": "Freegg-top" },
   "license": "MIT",
   "commands": "commands",
   "hooks": "hooks/hooks.json"
