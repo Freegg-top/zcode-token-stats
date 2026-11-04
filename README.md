@@ -1,8 +1,8 @@
 ﻿# ZCode Token 统计（Harness 双胶囊版）
 
-![CI](https://github.com/bgsxbz/zcode-token-stats/actions/workflows/ci.yml/badge.svg)
-![Release](https://img.shields.io/github/v/release/bgsxbz/zcode-token-stats)
-![License](https://img.shields.io/github/license/bgsxbz/zcode-token-stats)
+![CI](https://github.com/Freegg-top/zcode-token-stats/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/Freegg-top/zcode-token-stats)
+![License](https://img.shields.io/github/license/Freegg-top/zcode-token-stats)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-blue)
 
 > **非官方项目**：与 ZCode / DeepSeek 官方无关，不提供任何担保。安装会修改本地 ZCode 文件（`app.asar`、`zcode.cjs`），安装前自动备份，卸载可恢复原始文件。
@@ -48,7 +48,7 @@
 
 ## 快速安装
 
-1. 从 [Releases 最新版](https://github.com/bgsxbz/zcode-token-stats/releases/latest) 下载 `ZCode-Token-Stats-*-win-x64.zip`，并核对 sha256。
+1. 从 [Releases 最新版](https://github.com/Freegg-top/zcode-token-stats/releases/latest) 下载 `ZCode-Token-Stats-*-win-x64.zip`，并核对 sha256。
 2. 解压到可写目录（不要在压缩包内直接运行）。
 3. 双击 `安装.cmd`，按菜单选择操作；安装完成后手动打开 ZCode。
 
@@ -73,7 +73,7 @@ node patch.js remove
 
 本仓库同时是 ZCode 插件市场，提供 `/install-overlay`（安装/升级）、`/uninstall-overlay`（卸载）命令：
 
-1. 打开 **插件市场（Plugin Marketplace）→ 添加 → 添加插件市场**，粘贴仓库地址 `https://github.com/bgsxbz/zcode-token-stats`。
+1. 打开 **插件市场（Plugin Marketplace）→ 添加 → 添加插件市场**，粘贴仓库地址 `https://github.com/Freegg-top/zcode-token-stats`。
 2. 在市场列表中安装 **ZCode Token 统计**（zcode-token-stats）。
 3. 安装插件后**无需手动操作**：每次会话启动时自动检测注入状态；若缺失（首次安装或 ZCode 升级覆盖），在你完全退出 ZCode 时自动完成注入、校验并重启 ZCode，日志见 `%LOCALAPPDATA%\ZCodeTokenStats\auto-apply.log`。不希望自动重启时，给 hooks.json 里该 hook 加 `-NoRelaunch` 参数即可（注入仍会完成，下次手动打开生效）。
 4. 也可在新会话手动运行 `/install-overlay` 安装或升级；若 GitHub 源无法添加，先 `git clone` 本仓库，再以仓库根目录（`marketplace.json` 所在目录）作为市场根添加。
