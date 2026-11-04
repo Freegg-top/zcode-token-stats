@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Core and fixture tests
+        run: npm test
+
+      - name: Syntax checks
+        shell: pwsh
+        run: |
+          node --check patch.js
+          node --check patch-lib.js
+          node --check auto-patch.cjs
+          node --check cli-patch.cjs
+          node --check stats-core.js
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          foreach ($name in @('install.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $name),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_ }
+              exit 1
+            }
+          }

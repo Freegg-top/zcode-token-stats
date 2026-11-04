@@ -1,0 +1,79 @@
+window.__ztsVersion=`__ZTS_VERSION__`;
+function ZTP({sessionId:n}){
+  let [s,setS]=(0,__ZTP_REACT__.useState)(null), [p,setP]=(0,__ZTP_REACT__.useState)(null);
+  let root=(0,__ZTP_REACT__.useRef)(null), panel=(0,__ZTP_REACT__.useRef)(null);
+  (0,__ZTP_REACT__.useEffect)(()=>{
+    if(!n)return;
+    window.__ztsSessionId=n;
+    let readContext=()=>{
+      try {
+        let el=[...document.querySelectorAll(`button,[role="button"]`)].find(node=>/上下文已用|context/i.test(node.getAttribute?.(`aria-label`)||node.textContent||``));
+        let match=el&&(/总量\s*([\d,]+)/u.exec(el.textContent||``)||[]);
+        if(match)window.__ztsContextWindow=Number(match[1].replace(/,/g,``));
+      } catch {}
+    };
+    let update=event=>{if(event?.detail)setS(event.detail)};
+    window.addEventListener(`ztsSnapshot`,update);
+    readContext();
+    let contextTimer=setInterval(readContext,2000);
+    return ()=>{window.removeEventListener(`ztsSnapshot`,update);clearInterval(contextTimer)};
+  },[n]);
+  (0,__ZTP_REACT__.useEffect)(()=>{
+    if(!p)return;
+    let close=event=>{
+      let target=event.target;
+      if(!(target instanceof Node))return;
+      if(root.current?.contains(target)||panel.current?.contains(target))return;
+      setP(null);
+    };
+    let key=event=>{if(event.key===`Escape`)setP(null)};
+    document.addEventListener(`mousedown`,close);
+    document.addEventListener(`keydown`,key);
+    return ()=>{document.removeEventListener(`mousedown`,close);document.removeEventListener(`keydown`,key)};
+  },[p]);
+  let toggle=(id,event)=>{
+    event.stopPropagation();
+    let rect=event.currentTarget.getBoundingClientRect();
+    let width=Math.min(320,window.innerWidth-24);
+    let group=root.current?.getBoundingClientRect()??rect;
+    let center=group.left+group.width/2;
+    setP(current=>current?.id===id?null:{id,left:Math.max(12,Math.min(center-width/2,window.innerWidth-width-12)),bottom:Math.max(12,window.innerHeight-rect.top+8),width});
+  };
+  let u=s?.sessionUsage, a=s?.activity;
+  if(!n||!u||u.total===0)return null;
+  let tps=a?.modelMs>0?u.output/(a.modelMs/1000):null;
+  let counts=`${a?.turns??0} 轮 ${a?.steps??0} 步`;
+  let detail=(label,value)=>[
+    (0,__ZTP_JSX__.jsx)(`dt`,{className:`min-w-0 truncate text-foreground-subtle`,children:label},`label-${label}`),
+    (0,__ZTP_JSX__.jsx)(`dd`,{className:`m-0 min-w-0 truncate text-right font-mono tabular-nums text-foreground`,children:value},`value-${label}`)
+  ];
+  let rows=[];
+  let push=(label,value)=>{if(value!==null&&value!==undefined&&value!==``)rows.push(...detail(label,value))};
+  if(p?.id===`activity`){
+    push(`模型用时`,a?.modelMs>0?ZTD(a.modelMs):null);
+    push(`工具调用用时`,a?.toolMs>0?ZTD(a.toolMs):null);
+    push(`首 Token 平均（TTFT）`,u?.ttftMs>0?ZTD(u.ttftMs):null);
+    push(`输出速度（TPS）`,tps!==null?`${ZTF(tps)} tok/s`:null);
+  } else if(p?.id===`usage`){
+    push(`输入`,ZTK(u.uncached));
+    push(`缓存读取`,ZTK(u.cacheRead));
+    if(u.cacheWrite>0)push(`缓存写入`,ZTK(u.cacheWrite));
+    push(`输出`,ZTK(u.output));
+    push(`今日`,s?.today?`${ZTK(s.today.total)} tok`:null);
+    push(`项目`,s?.project?`${ZTK(s.project.total)} tok`:null);
+    if(u.context?.window)push(`上下文`,`${ZTK(u.context.used)} / ${ZTK(u.context.window)}`);
+  }
+  let popupRows=[];
+  if(p?.id===`activity`)popupRows.push((0,__ZTP_JSX__.jsx)(`div`,{className:`mb-2 font-medium text-foreground`,children:`活动统计`}));
+  if(p?.id===`usage`)popupRows.push((0,__ZTP_JSX__.jsxs)(`div`,{className:`mb-2 flex items-baseline justify-between gap-2`,children:[(0,__ZTP_JSX__.jsx)(`span`,{className:`font-medium text-foreground`,children:`用量`}),(0,__ZTP_JSX__.jsx)(`span`,{className:`font-mono text-ui-sm tabular-nums text-foreground-subtle`,children:`${ZTK(u.total)} tok`})]}));
+  popupRows.push((0,__ZTP_JSX__.jsx)(`div`,{className:`mb-2 h-px bg-border`}));
+  popupRows.push((0,__ZTP_JSX__.jsx)(`dl`,{style:{display:`grid`,gridTemplateColumns:`minmax(88px,auto) minmax(0,1fr)`,columnGap:`16px`,rowGap:`7px`,margin:0},children:rows},`details`));
+  let panelNode=p?(0,__ZTP_PORTAL__.createPortal((0,__ZTP_JSX__.jsxs)(`div`,{ref:panel,"data-ztp-panel":p.id,role:`dialog`,"aria-label":p.id===`activity`?`会话统计`:`用量`,className:`overflow-y-auto rounded-xl border border-border bg-popover p-3 text-ui-sm text-foreground-subtle shadow-xl`,style:{position:`fixed`,left:p.left,bottom:p.bottom,width:p.width,maxHeight:`min(70vh,420px)`,zIndex:1100},children:[...popupRows]}),document.body)):null;
+  return (0,__ZTP_JSX__.jsxs)(__ZTP_JSX__.Fragment,{children:[
+    (0,__ZTP_JSX__.jsxs)(`span`,{ref:root,className:`inline-flex min-w-0 shrink items-center gap-1`,"data-testid":`token-speed-indicator`,children:[
+      (0,__ZTP_JSX__.jsxs)(`button`,{type:`button`,"data-ztp-stat":`activity`,className:`inline-flex h-7 min-w-0 shrink items-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-ui-base tabular-nums transition-colors ${p?.id===`activity`?`bg-surface-hover text-foreground`:`text-foreground-subtle hover:bg-surface-hover hover:text-foreground`}`,onClick:event=>toggle(`activity`,event),children:[(0,__ZTP_JSX__.jsx)(`span`,{children:`◷`}),(0,__ZTP_JSX__.jsx)(`span`,{className:`truncate`,children:counts}),tps!==null?(0,__ZTP_JSX__.jsxs)(__ZTP_JSX__.Fragment,{children:[(0,__ZTP_JSX__.jsx)(`span`,{children:`·`}),(0,__ZTP_JSX__.jsx)(`span`,{className:`shrink-0`,children:`${ZTF(tps)} tok/s`})]}):null]}),
+      (0,__ZTP_JSX__.jsxs)(`button`,{type:`button`,"data-ztp-stat":`usage`,className:`inline-flex h-7 min-w-0 shrink items-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-ui-base tabular-nums transition-colors ${p?.id===`usage`?`bg-surface-hover text-foreground`:`text-foreground-subtle hover:bg-surface-hover hover:text-foreground`}`,onClick:event=>toggle(`usage`,event),children:[(0,__ZTP_JSX__.jsx)(`span`,{children:`▤`}),(0,__ZTP_JSX__.jsx)(`span`,{className:`shrink-0`,children:`${ZTK(u.total)} tok`})]})
+    ]}),
+    panelNode
+  ]});
+}

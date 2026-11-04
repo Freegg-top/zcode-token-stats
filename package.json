@@ -1,0 +1,17 @@
+﻿{
+  "name": "zcode-token-stats",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Token/activity statistics pills for the ZCode desktop composer",
+  "scripts": {
+    "check": "node patch.js check",
+    "apply": "node patch.js apply",
+    "remove": "node patch.js remove",
+    "test": "node tests/test-core.cjs && node tests/test-fixture.cjs",
+    "test:direct": "node tests/test-sqlite-usage.cjs && node tests/test-loader-patch.cjs && node tests/test-apply-main.cjs"
+  },
+  "dependencies": {
+    "@electron/asar": "^4.3.1",
+    "acorn": "^8.19.0"
+  }
+}
