@@ -132,12 +132,17 @@ try {
       if ($WaitForExit) {
         $log = Join-Path $StampRoot 'update-overlay.log'
         New-Item -ItemType Directory -Path $StampRoot -Force | Out-Null
+        # The waiter owns $work: it installs from the already-verified package
+        # and removes $work afterwards, so the temp files never outlive it.
         $waiter = "while (Get-Process -Name ZCode -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 5 }`n" +
-                  "try { powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$installer`" -Action apply -NoPause *> `"$log`" } catch { \$_ | Out-File `"$log`" }"
+                  "try { powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$installer`" -Action apply -NoPause *> `"$log`" } catch { \$_ | Out-File `"$log`" }`n" +
+                  "Remove-Item -LiteralPath '$work' -Recurse -Force -ErrorAction SilentlyContinue"
         Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', $waiter) -WindowStyle Hidden
-        Write-Host 'ZCode 正在运行：已挂一次性等待任务，ZCode 完全退出后自动安装（仅运行一次，安装完即退出）。'
+        Write-Host 'ZCode 正在运行：已挂一次性等待任务，ZCode 完全退出后自动安装（仅运行一次，安装完即退出并清理临时文件）。'
         Write-Host ("日志： " + $log)
         Write-Host '安装完成后请重新打开 ZCode。'
+        # Do not touch $work here — the running waiter still needs it.
+        exit 0
       } else {
         Write-Host 'ZCode 正在运行，未修改任何文件。' -ForegroundColor Yellow
         Write-Host '请完全退出 ZCode（包括托盘）后重新运行 -Install；或加 -WaitForExit 等待退出后自动安装。'
