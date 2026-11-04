@@ -1,0 +1,14 @@
+node_modules/
+app.asar
+app.asar.unpacked/
+app.asar.before-*
+zcode.cjs.before-*
+*.asar
+*.zip
+*.log
+*.png
+!docs/*.png
+.env
+.env.*
+zcode-cli-test.cjs
+portable-validation-*/

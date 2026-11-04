@@ -1,0 +1,20 @@
+{
+  "name": "zcode-token-stats-market",
+  "description": "ZCode Token 统计插件市场：输入框 Token/用量统计胶囊（direct SQLite 架构）的安装、版本检查与卸载。",
+  "owner": { "name": "bgsxbz", "url": "https://github.com/bgsxbz" },
+  "plugins": [
+    {
+      "name": "zcode-token-stats",
+      "source": "./plugins/zcode-token-stats",
+      "version": "2.0.6",
+      "displayName": "ZCode Token Stats",
+      "displayName_i18n": { "zh-CN": "ZCode Token 统计" },
+      "description": "Install, update check, and uninstall for the ZCode composer token statistics pills (direct SQLite architecture; modifies app.asar and requires a full ZCode restart to take effect).",
+      "description_i18n": {
+        "zh-CN": "ZCode 输入框 Token/用量统计胶囊的安装、版本检查与卸载（direct SQLite 架构，修改 app.asar，成功后需完全退出并重开 ZCode）。"
+      },
+      "category": "developer-tools",
+      "keywords": ["token", "usage", "statistics", "zcode", "windows"]
+    }
+  ]
+}

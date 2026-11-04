@@ -1,0 +1,215 @@
+function ZTP({workspacePath:e,workspaceIdentity:t,sessionId:n,snapshot:r}){
+  let {zcodeAgentService:i}=__ZTP_SERVICES__(), [a,o]=(0,__ZTP_REACT__.useState)({key:null,rounds:[]}), [child,setChild]=(0,__ZTP_REACT__.useState)({key:null,usage:null,count:0,workflowCount:0,partial:false}), [parent,setParent]=(0,__ZTP_REACT__.useState)({key:null,usage:null}), [p,setP]=(0,__ZTP_REACT__.useState)(null);
+  let root=(0,__ZTP_REACT__.useRef)(null), panel=(0,__ZTP_REACT__.useRef)(null), snapshotRef=(0,__ZTP_REACT__.useRef)(r);
+  snapshotRef.current=r;
+  (0,__ZTP_REACT__.useEffect)(()=>{
+    if(!p)return;
+    let close=event=>{
+      let target=event.target;
+      if(!(target instanceof Node))return;
+      if(root.current?.contains(target)||panel.current?.contains(target))return;
+      setP(null);
+    };
+    let key=event=>{event.key===`Escape`&&setP(null)};
+    document.addEventListener(`pointerdown`,close,!0);
+    document.addEventListener(`keydown`,key);
+    return ()=>{document.removeEventListener(`pointerdown`,close,!0);document.removeEventListener(`keydown`,key)};
+  },[p]);
+  (0,__ZTP_REACT__.useEffect)(()=>{
+    if(!n){o({key:null,rounds:[]});setChild({key:null,usage:null,count:0,workflowCount:0,partial:false});return}
+    let c=!1,d=!1,f,saved=[];
+    let childCache=new Map(), childInFlight=!1, childScannedAt=0, childRunning=new Set(), expanded=new Set();
+    setP(null);
+    let key=JSON.stringify([t?.trim()||e,n]);
+    try {
+      let value=JSON.parse(localStorage.getItem(`ztsRounds:`+n)||`[]`);
+      if(Array.isArray(value))saved=value;
+    } catch {}
+    o({key,rounds:saved});
+    setChild({key,usage:null,count:0,workflowCount:0,partial:false});
+    let scanChildren=async()=>{
+      if(c||childInFlight||typeof i.listSessionSubagents!==`function`)return;
+      childInFlight=!0;
+      try {
+        let directory=await i.listSessionSubagents({workspacePath:e,workspaceIdentity:t,sessionId:n,endedLimit:100});
+        if(c)return;
+        let running=new Set((directory?.running??[]).map(item=>item.childSessionId).filter(Boolean));
+        let ids=Array.isArray(directory?.childSessionIds)?directory.childSessionIds:[];
+        if(ids.length===0)ids=[...(directory?.running??[]),...(directory?.ended?.items??[])].map(item=>item.childSessionId);
+        let workflowIds=new Set();
+        for(let run of snapshotRef.current?.workflowRuns?.runs??[]){
+          for(let actor of run?.actors??[])if(typeof actor?.sessionId===`string`&&actor.sessionId)workflowIds.add(actor.sessionId);
+        }
+        let workflowCount=workflowIds.size;
+        let idSet=new Set([...ids,...workflowIds].filter(id=>typeof id===`string`&&id&&id!==n));
+        let pendingIds=[...idSet].filter(id=>!expanded.has(id)||running.has(id));
+        for(let start=0;start<pendingIds.length;start+=4){
+          await Promise.all(pendingIds.slice(start,start+4).map(async id=>{
+            expanded.add(id);
+            try {
+              let nested=await i.listSessionSubagents({workspacePath:e,workspaceIdentity:t,sessionId:id,endedLimit:1});
+              let nestedIds=Array.isArray(nested?.childSessionIds)?nested.childSessionIds:[];
+              if(nestedIds.length===0)nestedIds=[...(nested?.running??[]),...(nested?.ended?.items??[])].map(item=>item.childSessionId);
+              for(let child of nestedIds)if(typeof child===`string`&&child&&child!==n)idSet.add(child);
+            } catch {}
+          }));
+          if(c)return;
+        }
+        ids=[...idSet];
+        let partial=ids.length>200;
+        ids=ids.slice(0,200);
+        let targets=ids.filter(id=>{
+          let cached=childCache.get(id);
+          return !cached||!cached.usage||running.has(id)||childRunning.has(id);
+        });
+        for(let start=0;start<targets.length;start+=4){
+          await Promise.all(targets.slice(start,start+4).map(async id=>{
+            let usage=null,partial=false,full=null,debugUsage=null,debugPartial=false;
+            // Prefer the patched persisted task query (full per-request sum and
+            // cache fields). Keep debug usage as the fallback for older runtimes.
+            if(typeof i.getTaskTokenUsage===`function`){
+              try {
+                let total=await i.getTaskTokenUsage({workspacePath:e,workspaceIdentity:t,sessionId:id});
+                if(total&&typeof total.inputTokens===`number`&&typeof total.outputTokens===`number`)full=ZTB(total);
+              } catch {}
+            }
+            try {
+              let debug=await i.readSessionDebug({workspacePath:e,workspaceIdentity:t,sessionId:id});
+              let rounds=Array.isArray(debug?.rounds)?debug.rounds:[];
+              if(rounds.length>0){
+                debugUsage=ZTU(rounds);
+                debugPartial=rounds.length>=200;
+              }
+            } catch {}
+            if(full&&(!debugUsage||full.total>=debugUsage.total))usage=full;
+            else if(debugUsage){usage=debugUsage;partial=debugPartial}
+            if(!usage)partial=true;
+            childCache.set(id,{usage,partial});
+          }));
+          if(c)return;
+        }
+        childRunning=running;
+        let values=[];
+        for(let id of ids){
+          let item=childCache.get(id);
+          if(item?.usage)values.push(item.usage);
+          if(!item?.usage||item.partial)partial=true;
+        }
+        if(c)return;
+        setChild({key,usage:ZTJ(values),count:ids.length,workflowCount,partial});
+      } catch {} finally {childInFlight=!1}
+    };
+    let u=async()=>{
+      if(d)return;
+      d=!0;
+      try {
+        let l=await i.readSessionDebug({workspacePath:e,workspaceIdentity:t,sessionId:n});
+        if(c)return;
+        let rounds=ZTM(saved,Array.isArray(l?.rounds)?l.rounds:[]);
+        try {localStorage.setItem(`ztsRounds:`+n,JSON.stringify(rounds))} catch {}
+        o({key,rounds});
+        if(Date.now()-childScannedAt>5000){
+          childScannedAt=Date.now();
+          scanChildren();
+        }
+      } catch {} finally {d=!1}
+    };
+    childScannedAt=Date.now();
+    scanChildren();
+    u();
+    f=setInterval(u,1000);
+    return ()=>{c=!0;clearInterval(f)};
+  },[e,t,n,i]);
+  (0,__ZTP_REACT__.useEffect)(()=>{
+    if(!n||typeof i.getTaskTokenUsage!==`function`)return;
+    let c=!1,f;
+    let key=JSON.stringify([t?.trim()||e,n]);
+    let load=async()=>{
+      try {
+        let total=await i.getTaskTokenUsage({workspacePath:e,workspaceIdentity:t,sessionId:n});
+        if(c||!total||typeof total.inputTokens!==`number`||typeof total.outputTokens!==`number`)return;
+        setParent({key,usage:ZTB(total)});
+      } catch {}
+      if(!c)f=setTimeout(load,5000);
+    };
+    load();
+    return ()=>{c=!0;clearTimeout(f)};
+  },[e,t,n,i]);
+  let m=a.key===JSON.stringify([t?.trim()||e,n])?a.rounds:[];
+  let childKey=JSON.stringify([t?.trim()||e,n]);
+  let childStats=child.key===childKey?child:null;
+  let snapshotR=ZTR(r,m);
+  let parentStats=parent.key===childKey?parent.usage:null;
+  let s=ZTS(m), R=parentStats&&parentStats.total>=snapshotR.total?parentStats:snapshotR;
+  let U=childStats?.usage?ZTA(R,childStats.usage):R;
+  let activity=ZTX(r,m);
+  let counts=activity.steps>0?`${activity.turns} 轮 ${activity.steps} 步`:null;
+  if(!n||!counts&&U.total===0)return null;
+  let gauge=(0,__ZTP_JSX__.jsxs)(`svg`,{viewBox:`0 0 24 24`,fill:`none`,stroke:`currentColor`,strokeWidth:`2`,strokeLinecap:`round`,strokeLinejoin:`round`,className:`size-3.5 shrink-0`,"aria-hidden":`true`,children:[
+    (0,__ZTP_JSX__.jsx)(`path`,{d:`m12 14 4-4`}),
+    (0,__ZTP_JSX__.jsx)(`path`,{d:`M3.34 19a10 10 0 1 1 17.32 0`})
+  ]});
+  let database=(0,__ZTP_JSX__.jsxs)(`svg`,{viewBox:`0 0 24 24`,fill:`none`,stroke:`currentColor`,strokeWidth:`2`,strokeLinecap:`round`,strokeLinejoin:`round`,className:`size-3.5 shrink-0`,"aria-hidden":`true`,children:[
+    (0,__ZTP_JSX__.jsx)(`ellipse`,{cx:`12`,cy:`5`,rx:`9`,ry:`3`}),
+    (0,__ZTP_JSX__.jsx)(`path`,{d:`M3 5v14a9 3 0 0 0 18 0V5`}),
+    (0,__ZTP_JSX__.jsx)(`path`,{d:`M3 12a9 3 0 0 0 18 0`})
+  ]});
+  let toggle=(id,event)=>{
+    let rect=event.currentTarget.getBoundingClientRect();
+    let group=root.current?.getBoundingClientRect()??rect;
+    let width=Math.min(300,window.innerWidth-24);
+    let center=group.left+group.width/2;
+    setP(current=>current?.id===id?null:{
+      id,
+      left:Math.max(12,Math.min(center-width/2,window.innerWidth-width-12)),
+      bottom:Math.max(12,window.innerHeight-rect.top+8),
+      width
+    });
+  };
+  let pillClass=id=>`inline-flex h-7 min-w-0 shrink items-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-ui-base tabular-nums transition-colors ${p?.id===id?`bg-surface-hover text-foreground`:`text-foreground-subtle hover:bg-surface-hover hover:text-foreground`}`;
+  let gridStyle={display:`grid`,gridTemplateColumns:`minmax(72px,auto) minmax(0,1fr)`,columnGap:`16px`,rowGap:`6px`,margin:0};
+  let detail=(label,value)=>[
+    (0,__ZTP_JSX__.jsx)(`dt`,{className:`min-w-0`,style:{overflowWrap:`anywhere`},children:label},label+`-label`),
+    (0,__ZTP_JSX__.jsx)(`dd`,{className:`m-0 min-w-0 text-right font-mono tabular-nums text-foreground`,style:{whiteSpace:`nowrap`},children:value},label+`-value`)
+  ];
+  let heading=(title,value,icon)=>(0,__ZTP_JSX__.jsxs)(`div`,{key:title,className:`mb-2`,children:[
+    (0,__ZTP_JSX__.jsxs)(`div`,{className:`mb-2 flex items-center justify-between gap-4 font-medium text-foreground`,children:[
+      (0,__ZTP_JSX__.jsxs)(`span`,{className:`inline-flex min-w-0 items-center gap-1.5`,children:[icon,(0,__ZTP_JSX__.jsx)(`span`,{className:`truncate`,children:title})]}),
+      value?(0,__ZTP_JSX__.jsx)(`span`,{className:`shrink-0 font-mono tabular-nums`,children:value}):null
+    ]}),
+    (0,__ZTP_JSX__.jsx)(`div`,{className:`border-t border-border`})
+  ]});
+  let popupRows=[];
+  if(p?.id===`activity`){
+    popupRows.push(heading(`会话统计`,counts,gauge));
+    let values=[];
+    if(activity.modelMs!==null&&activity.modelMs>0)values.push(...detail(`模型用时`,ZTD(activity.modelMs)));
+    if(activity.toolMs!==null&&activity.toolMs>0)values.push(...detail(`工具调用用时`,ZTD(activity.toolMs)));
+    if(s)values.push(...detail(`输出速度（TPS）`,`${ZTF(s.value)} tok/s`));
+    popupRows.push((0,__ZTP_JSX__.jsx)(`dl`,{style:gridStyle,children:values},`details`));
+  } else if(p?.id===`usage`){
+    popupRows.push(heading(`用量`,ZTK(U.total),database));
+    let values=[];
+    values.push(...detail(`输入`,ZTK(U.uncached)));
+    values.push(...detail(`缓存读取`,ZTK(U.cacheRead)));
+    if(U.cacheWrite>0)values.push(...detail(`缓存写入`,ZTK(U.cacheWrite)));
+    values.push(...detail(`输出`,ZTK(U.output)));
+    if(childStats?.count>0)values.push(...detail(childStats.workflowCount>0?`子代理/工作流`:`子代理`,`${ZTK(childStats.usage.total)} tok · ${childStats.count} 个`));
+    popupRows.push((0,__ZTP_JSX__.jsx)(`dl`,{style:gridStyle,children:values},`details`));
+
+  }
+  return (0,__ZTP_JSX__.jsxs)(__ZTP_JSX__.Fragment,{children:[
+    (0,__ZTP_JSX__.jsxs)(`span`,{ref:root,className:`inline-flex min-w-0 shrink items-center gap-1`,"data-testid":`token-speed-indicator`,children:[
+      counts?(0,__ZTP_JSX__.jsxs)(`button`,{type:`button`,"data-ztp-stat":`activity`,className:pillClass(`activity`),"aria-label":counts,"aria-haspopup":`dialog`,"aria-expanded":p?.id===`activity`,onClick:event=>toggle(`activity`,event),children:[
+        gauge,
+        (0,__ZTP_JSX__.jsx)(`span`,{className:`truncate`,children:counts}),
+        s?(0,__ZTP_JSX__.jsxs)(__ZTP_JSX__.Fragment,{children:[(0,__ZTP_JSX__.jsx)(`span`,{className:`shrink-0`,children:`·`}),(0,__ZTP_JSX__.jsx)(`span`,{className:`shrink-0`,children:`${ZTF(s.value)} tok/s`})]}):null
+      ]}):null,
+      U.total>0?(0,__ZTP_JSX__.jsxs)(`button`,{type:`button`,"data-ztp-stat":`usage`,className:pillClass(`usage`),"aria-label":`用量`,"aria-haspopup":`dialog`,"aria-expanded":p?.id===`usage`,onClick:event=>toggle(`usage`,event),children:[
+        database,
+        (0,__ZTP_JSX__.jsx)(`span`,{className:`shrink-0`,children:`${ZTK(U.total)} tok`})
+      ]}):null
+    ]}),
+    p?__ZTP_PORTAL__.createPortal((0,__ZTP_JSX__.jsx)(`div`,{ref:panel,"data-ztp-panel":p.id,role:`dialog`,"aria-label":p.id===`activity`?`会话统计`:`用量`,style:{position:`fixed`,left:p.left,bottom:p.bottom,width:p.width,zIndex:1100},className:`rounded-lg border border-border bg-popover p-4 text-ui-sm text-foreground-subtle shadow-lg`,children:popupRows}),document.body):null
+  ]});
+}

@@ -1,0 +1,42 @@
+name: Bug report
+description: Report an installation, compatibility, or statistics problem
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: zcode-version
+    attributes:
+      label: ZCode version
+      placeholder: "3.17.2"
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: "1.4.3"
+    validations:
+      required: true
+  - type: textarea
+    id: check-output
+    attributes:
+      label: check.cmd output
+      description: Paste the output of check.cmd. Remove usernames or private paths if needed.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and reproduction steps
+    validations:
+      required: true
+  - type: dropdown
+    id: restarted
+    attributes:
+      label: Did you fully restart ZCode after installing?
+      options:
+        - "Yes"
+        - "No"
+    validations:
+      required: true
