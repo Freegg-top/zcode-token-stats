@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "zcode-token-stats-market",
   "description": "ZCode Token 统计插件市场：输入框 Token/用量统计胶囊（direct SQLite 架构）的安装、版本检查与卸载。",
   "owner": { "name": "Freegg-top", "url": "https://github.com/Freegg-top" },
