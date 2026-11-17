@@ -26,6 +26,26 @@ function Find-AppAsar {
   $candidates.Add((Join-Path $env:LOCALAPPDATA 'Programs\ZCode\resources\app.asar'))
   $candidates.Add((Join-Path $env:ProgramFiles 'ZCode\resources\app.asar'))
   if ($env:ZCODE_HOME) { $candidates.Add((Join-Path $env:ZCODE_HOME 'resources\app.asar')) }
+  # Non-standard install roots: scan registry uninstall entries for ZCode
+  # (InstallLocation or DisplayIcon) so custom locations survive app updates.
+  $uninstallRoots = @(
+    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+  )
+  foreach ($root in $uninstallRoots) {
+    try {
+      Get-ItemProperty -Path $root -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like '*ZCode*' } |
+        ForEach-Object {
+          if ($_.InstallLocation) { $candidates.Add((Join-Path $_.InstallLocation 'resources\app.asar')) }
+          if ($_.DisplayIcon) {
+            $icon = ($_.DisplayIcon -replace ',\d+\s*$', '').Trim('"')
+            if ($icon) { $candidates.Add((Join-Path (Split-Path -Parent $icon) 'resources\app.asar')) }
+          }
+        }
+    } catch {}
+  }
   foreach ($candidate in $candidates | Select-Object -Unique) {
     if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $candidate }
   }
