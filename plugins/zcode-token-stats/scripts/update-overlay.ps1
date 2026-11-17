@@ -21,6 +21,26 @@ function Find-AppAsar {
   $candidates.Add((Join-Path $env:LOCALAPPDATA 'Programs\ZCode\resources\app.asar'))
   $candidates.Add((Join-Path $env:ProgramFiles 'ZCode\resources\app.asar'))
   if ($env:ZCODE_HOME) { $candidates.Add((Join-Path $env:ZCODE_HOME 'resources\app.asar')) }
+  # Non-standard install roots: scan registry uninstall entries for ZCode
+  # (InstallLocation or DisplayIcon) so custom locations survive app updates.
+  $uninstallRoots = @(
+    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+  )
+  foreach ($root in $uninstallRoots) {
+    try {
+      Get-ItemProperty -Path $root -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like '*ZCode*' } |
+        ForEach-Object {
+          if ($_.InstallLocation) { $candidates.Add((Join-Path $_.InstallLocation 'resources\app.asar')) }
+          if ($_.DisplayIcon) {
+            $icon = ($_.DisplayIcon -replace ',\d+\s*$', '').Trim('"')
+            if ($icon) { $candidates.Add((Join-Path (Split-Path -Parent $icon) 'resources\app.asar')) }
+          }
+        }
+    } catch {}
+  }
   foreach ($candidate in $candidates | Select-Object -Unique) {
     if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $candidate }
   }
@@ -132,12 +152,17 @@ try {
       if ($WaitForExit) {
         $log = Join-Path $StampRoot 'update-overlay.log'
         New-Item -ItemType Directory -Path $StampRoot -Force | Out-Null
+        # The waiter owns $work: it installs from the already-verified package
+        # and removes $work afterwards, so the temp files never outlive it.
         $waiter = "while (Get-Process -Name ZCode -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 5 }`n" +
-                  "try { powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$installer`" -Action apply -NoPause *> `"$log`" } catch { \$_ | Out-File `"$log`" }"
+                  "try { powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$installer`" -Action apply -NoPause *> `"$log`" } catch { \$_ | Out-File `"$log`" }`n" +
+                  "Remove-Item -LiteralPath '$work' -Recurse -Force -ErrorAction SilentlyContinue"
         Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', $waiter) -WindowStyle Hidden
-        Write-Host 'ZCode 正在运行：已挂一次性等待任务，ZCode 完全退出后自动安装（仅运行一次，安装完即退出）。'
+        Write-Host 'ZCode 正在运行：已挂一次性等待任务，ZCode 完全退出后自动安装（仅运行一次，安装完即退出并清理临时文件）。'
         Write-Host ("日志： " + $log)
         Write-Host '安装完成后请重新打开 ZCode。'
+        # Do not touch $work here — the running waiter still needs it.
+        exit 0
       } else {
         Write-Host 'ZCode 正在运行，未修改任何文件。' -ForegroundColor Yellow
         Write-Host '请完全退出 ZCode（包括托盘）后重新运行 -Install；或加 -WaitForExit 等待退出后自动安装。'
